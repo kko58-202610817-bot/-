@@ -89,7 +89,7 @@
     </div>
   </div>
 
-  <!-- 메인 서비스 레이아웃 (로그인 전에는 보이지 않음) -->
+  <!-- 메인 서비스 레이아웃 -->
   <div id="mainContent" class="opacity-0 transition-opacity duration-500 pointer-events-none">
     
     <!-- 상단 헤더 -->
@@ -101,7 +101,7 @@
         <p class="text-sm text-[var(--sub-text)] mt-1">나만의 스마트한 학습 파트너</p>
       </div>
       <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-end">
-        <button id="openApiModalBtn" class="py-2 px-3 text-xs font-semibold rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] shadow-xs flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
+        <button id="openApiModalBtn" class="py-2 px-3 text-xs font-semibold rounded-xl border border border-[var(--border-color)] bg-[var(--card-bg)] shadow-xs flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
           <i class="fa-solid fa-server text-blue-500"></i> 나이스 연동 설정
         </button>
         <button id="logoutBtn" class="py-2 px-3 text-xs font-semibold rounded-xl border border-red-200 text-red-500 bg-[var(--card-bg)] hover:bg-red-50 transition-all">
@@ -143,12 +143,19 @@
           </div>
         </section>
 
+        <!-- 오늘의 급식 카드 추가 위치 -->
+        <section id="neisMealCard" class="toss-card hidden">
+          <h2 class="text-lg font-bold mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-utensils text-orange-500"></i> 오늘의 급식
+          </h2>
+          <div id="mealContent" class="text-sm space-y-1 text-slate-600 dark:text-slate-300 bg-[var(--bg-color)] p-3.5 rounded-2xl border border-[var(--border-color)] min-h-[50px]">
+            불러오는 중...
+          </div>
+        </section>
+
         <section class="toss-card">
           <h2 class="text-lg font-bold mb-4"><i class="fa-solid fa-shield-halved text-green-500 mr-2"></i>스터디 랭킹</h2>
           <ul id="friendList" class="space-y-2 max-h-56 overflow-y-auto"></ul>
-          <button id="resetDataBtn" class="w-full mt-4 py-2 text-xs font-semibold rounded-xl text-red-500 border border-red-200 hover:bg-red-50 transition-all">
-            데이터 전면 초기화
-          </button>
         </section>
       </div>
 
@@ -162,7 +169,7 @@
             <button id="addTodoBtn" class="toss-btn">등록</button>
           </div>
 
-          <!-- 나이스 학사 일정 피드 구역 -->
+          <!-- 학사 일정 피드 구역 -->
           <div id="neisScheduleBox" class="mb-6 p-4 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 rounded-2xl hidden">
             <h3 class="text-xs font-bold text-blue-600 mb-2"><i class="fa-solid fa-calendar-minus"></i> 다가오는 학교 학사일정</h3>
             <ul id="neisScheduleList" class="space-y-1.5 text-xs"></ul>
@@ -230,12 +237,12 @@
     let timerInterval = null;
     let isTimerRunning = false;
     let localFetchedSchedules = [];
+    let localFetchedMeal = ""; // 급식 정보 캐싱
 
     async function initSystem() {
       const docSnap = await getDoc(docRef);
       const promptEl = document.getElementById('loginPrompt');
       
-      // 핵심 변경: 문서가 아예 없거나, 문서는 있지만 password 필드가 없는 경우 초기 설정 모드로 진입
       const isFirstTime = !docSnap.exists() || !docSnap.data().password;
       
       if (isFirstTime) {
@@ -257,7 +264,6 @@
       }
 
       if (isFirstTime) {
-        // 기존 문서 내용을 유지하면서 패스워드 및 기본 스키마 덮어쓰기 위해 병합 시도
         const docSnap = await getDoc(docRef);
         const existingData = docSnap.exists() ? docSnap.data() : {};
 
@@ -269,8 +275,8 @@
           friends: [{ name: "김토스", time: 75 }, { name: "이싸피", time: 42 }],
           theme: "default",
           neisConfig: { key: "", atptCode: "", schCode: "" },
-          ...existingData, // 기존에 저장해 둔 소중한 투두리스트나 포인트가 있다면 복구
-          password: inputPw // 새 비밀번호 강제 삽입
+          ...existingData,
+          password: inputPw
         };
         
         await setDoc(docRef, state);
@@ -301,6 +307,7 @@
           renderAll();
           if (state.neisConfig?.key && localFetchedSchedules.length === 0) {
             fetchNeisSchedule();
+            fetchNeisMeal(); // 잠금 해제 후 급식 데이터 함께 요청
           }
         }
       });
@@ -314,6 +321,7 @@
       if (state) await setDoc(docRef, state);
     }
 
+    // 나이스 학사일정 연동
     async function fetchNeisSchedule() {
       if (!state.neisConfig?.key) return;
       const { key, atptCode, schCode } = state.neisConfig;
@@ -332,6 +340,42 @@
           renderAll();
         }
       } catch (e) { console.error(e); }
+    }
+
+    // 신규 추가: 나이스 오늘 급식 연동
+    async function fetchNeisMeal() {
+      if (!state.neisConfig?.key) return;
+      const { key, atptCode, schCode } = state.neisConfig;
+      
+      // 오늘 날짜 포맷팅 (YYYYMMDD)
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const date = String(now.getDate()).padStart(2, '0');
+      const todayStr = `${year}${month}${date}`;
+
+      const url = `https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=${key}&Type=json&pIndex=1&pSize=5&ATPT_OFCDC_SC_CODE=${atptCode}&SD_SCH_CODE=${schCode}&MLSV_YMD=${todayStr}`;
+      
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.mealServiceDietInfo && data.mealServiceDietInfo[1]?.row) {
+          // 알레르기 숫자 정보 및 불필요한 공백 제거 가공 작업
+          let rawMenu = data.mealServiceDietInfo[1].row[0].DDISH_NM;
+          localFetchedMeal = rawMenu
+            .replace(/<br\/>/g, '\n') // 줄바꿈 치환
+            .replace(/[0-9.()]/g, '') // 알레르기 번호 (1.2.5..) 및 괄호 지우기
+            .trim();
+        } else {
+          localFetchedMeal = "오늘은 등록된 급식 메뉴가 없습니다. 🏖️";
+        }
+        renderAll();
+      } catch (e) {
+        console.error(e);
+        localFetchedMeal = "급식 정보를 불러오지 못했습니다.";
+        renderAll();
+      }
     }
 
     function renderAll() {
@@ -377,6 +421,7 @@
         }
       });
 
+      // 학사 일정 렌더링
       if (localFetchedSchedules.length > 0) {
         const box = document.getElementById('neisScheduleBox');
         const list = document.getElementById('neisScheduleList');
@@ -390,6 +435,18 @@
         });
       }
 
+      // 신규 추가: 급식 카드 렌더링
+      if (state.neisConfig?.key) {
+        const mealCard = document.getElementById('neisMealCard');
+        const mealContent = document.getElementById('mealContent');
+        mealCard.classList.remove('hidden');
+        
+        if (localFetchedMeal) {
+          // 줄바꿈 단위를 보기 좋게 브레이크 태그 등으로 가공하여 삽입
+          mealContent.innerHTML = localFetchedMeal.split('\n').map(food => `<div class="font-medium text-slate-700 dark:text-slate-200">${food.trim()}</div>`).join('');
+        }
+      }
+
       const friendListEl = document.getElementById('friendList');
       friendListEl.innerHTML = "";
       const myRank = { name: "나 (10817) ⭐", time: Math.floor(state.myTotalSeconds / 60), isMe: true };
@@ -400,6 +457,17 @@
         li.innerHTML = `<span>${i+1}. ${u.name}</span><span>${u.time}분</span>`;
         friendListEl.appendChild(li);
       });
+    }
+
+    window.buyItem = function(item, cost) {
+      if (state.points < cost) {
+        alert("포인트가 부족합니다!");
+        return;
+      }
+      state.points -= cost;
+      state.currentEquipped = item;
+      saveData();
+      showToast(`${item || '기본'} 아이템을 장착했습니다.`);
     }
 
     const timerBtn = document.getElementById('timerBtn');
@@ -450,14 +518,39 @@
       };
       await saveData();
       document.getElementById('apiModal').classList.add('hidden');
+      
+      // 설정 저장 후 즉시 스케줄과 급식 데이터 다시 불러오기
+      localFetchedSchedules = [];
+      localFetchedMeal = "";
       fetchNeisSchedule();
+      fetchNeisMeal();
     });
+
+    // 기존 누락된 전면 초기화 버튼 클릭 이벤트 바인딩 추가
+    const resetBtn = document.getElementById('resetDataBtn');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', async () => {
+        if (confirm("정말 모든 데이터를 초기화하고 처음 상태로 돌아가시겠습니까?")) {
+          await setDoc(docRef, {
+            password: state.password // 비밀번호는 유지
+          });
+          location.reload();
+        }
+      });
+    }
 
     function showToast(m) {
       const t = document.getElementById('toast');
       t.innerText = m; t.classList.replace('opacity-0', 'opacity-100');
       setTimeout(() => t.classList.replace('opacity-100', 'opacity-0'), 2500);
     }
+
+    // 테마 체인지 이벤트 리스너 누락 보완
+    document.getElementById('themeSelect').addEventListener('change', (e) => {
+      state.theme = e.target.value;
+      saveData();
+      renderAll();
+    });
 
     initSystem();
   </script>
