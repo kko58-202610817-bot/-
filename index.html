@@ -74,7 +74,7 @@
 </head>
 <body class="p-4 md:p-8 max-w-4xl mx-auto">
 
-  <!-- [신규 기능] 로그인 / 비밀번호 설정 화면 -->
+  <!-- 로그인 / 비밀번호 설정 화면 -->
   <div id="loginScreen" class="fixed inset-0 bg-[var(--bg-color)] z-50 flex items-center justify-center p-4">
     <div class="bg-[var(--card-bg)] text-[var(--text-color)] w-full max-w-sm p-6 rounded-3xl border border-[var(--border-color)] shadow-2xl text-center">
       <h2 class="text-xl font-bold text-[var(--toss-blue)] mb-2 flex items-center justify-center gap-2">
@@ -231,46 +231,52 @@
     let isTimerRunning = false;
     let localFetchedSchedules = [];
 
-    // 최초 실행 시 Firebase에 데이터가 존재하는지 확인하여 암호 검증 상태 제어
     async function initSystem() {
       const docSnap = await getDoc(docRef);
       const promptEl = document.getElementById('loginPrompt');
       
-      if (!docSnap.exists()) {
+      // 핵심 변경: 문서가 아예 없거나, 문서는 있지만 password 필드가 없는 경우 초기 설정 모드로 진입
+      const isFirstTime = !docSnap.exists() || !docSnap.data().password;
+      
+      if (isFirstTime) {
         promptEl.innerText = "🚨 초기 비밀번호 설정: 사용할 비밀번호를 입력 후 확인을 누르세요.";
         promptEl.classList.add('text-blue-500', 'font-bold');
       }
 
-      document.getElementById('loginBtn').addEventListener('click', () => handleAuth(docSnap.exists()));
+      document.getElementById('loginBtn').addEventListener('click', () => handleAuth(isFirstTime));
       document.getElementById('loginPassword').addEventListener('keyup', (e) => {
-        if(e.key === 'Enter') handleAuth(docSnap.exists());
+        if(e.key === 'Enter') handleAuth(isFirstTime);
       });
     }
 
-    async function handleAuth(isExistingUser) {
+    async function handleAuth(isFirstTime) {
       const inputPw = document.getElementById('loginPassword').value.trim();
       if (!inputPw) {
         alert("비밀번호를 입력해 주세요.");
         return;
       }
 
-      if (!isExistingUser) {
-        // 회원 생성 (초기 비밀번호 부여)
+      if (isFirstTime) {
+        // 기존 문서 내용을 유지하면서 패스워드 및 기본 스키마 덮어쓰기 위해 병합 시도
+        const docSnap = await getDoc(docRef);
+        const existingData = docSnap.exists() ? docSnap.data() : {};
+
         state = {
-          password: inputPw, // 비밀번호 필드 생성
           points: 0,
           currentEquipped: "",
           todos: [],
           myTotalSeconds: 0,
           friends: [{ name: "김토스", time: 75 }, { name: "이싸피", time: 42 }],
           theme: "default",
-          neisConfig: { key: "", atptCode: "", schCode: "" }
+          neisConfig: { key: "", atptCode: "", schCode: "" },
+          ...existingData, // 기존에 저장해 둔 소중한 투두리스트나 포인트가 있다면 복구
+          password: inputPw // 새 비밀번호 강제 삽입
         };
+        
         await setDoc(docRef, state);
         showToast("비밀번호 설정이 완료되었습니다!");
         unlockApp();
       } else {
-        // 기존 회원 암호 대조 검증
         const docSnap = await getDoc(docRef);
         const savedData = docSnap.data();
         
@@ -289,7 +295,6 @@
       const mainContent = document.getElementById('mainContent');
       mainContent.classList.remove('opacity-0', 'pointer-events-none');
       
-      // 실시간 데이터 스냅샷 구독 활성화
       onSnapshot(docRef, (snap) => {
         if(snap.exists()) {
           state = snap.data();
@@ -301,7 +306,6 @@
       });
     }
 
-    // 잠금(로그아웃) 기능 구현
     document.getElementById('logoutBtn').addEventListener('click', () => {
       location.reload(); 
     });
@@ -386,7 +390,6 @@
         });
       }
 
-      // 랭킹 시스템 구성
       const friendListEl = document.getElementById('friendList');
       friendListEl.innerHTML = "";
       const myRank = { name: "나 (10817) ⭐", time: Math.floor(state.myTotalSeconds / 60), isMe: true };
@@ -399,7 +402,6 @@
       });
     }
 
-    // 타이머 제어 로직
     const timerBtn = document.getElementById('timerBtn');
     timerBtn.addEventListener('click', () => {
       if (!isTimerRunning) {
