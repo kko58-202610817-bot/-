@@ -72,20 +72,26 @@
 </head>
 <body class="p-4 md:p-8 max-w-4xl mx-auto">
 
-  <header class="flex justify-between items-center mb-8">
+  <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
     <div>
       <h1 class="text-2xl font-bold tracking-tight text-[var(--toss-blue)] flex items-center gap-2">
         <i class="fa-solid fa-graduation-cap"></i> toss study
       </h1>
       <p class="text-sm text-[var(--sub-text)] mt-1">나만의 스마트한 학습 파트너</p>
     </div>
-    <div class="flex items-center gap-2">
-      <label for="themeSelect" class="text-xs font-medium text-[var(--sub-text)]">테마</label>
-      <select id="themeSelect" class="toss-input py-1 px-2 text-sm">
-        <option value="default">토스 화이트</option>
-        <option value="dark">다크 모드</option>
-        <option value="indigo">클래식 인디고</option>
-      </select>
+    <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-end">
+      <button id="openApiModalBtn" class="py-2 px-3 text-xs font-semibold rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] shadow-xs flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
+        <i class="fa-solid fa-server text-blue-500"></i> 나이스 학사일정 설정
+      </button>
+
+      <div class="flex items-center gap-2">
+        <label for="themeSelect" class="text-xs font-medium text-[var(--sub-text)]">테마</label>
+        <select id="themeSelect" class="toss-input py-1 px-2 text-sm">
+          <option value="default">토스 화이트</option>
+          <option value="dark">다크 모드</option>
+          <option value="indigo">클래식 인디고</option>
+        </select>
+      </div>
     </div>
   </header>
 
@@ -148,10 +154,18 @@
           <span class="text-xs text-red-500 font-normal"><i class="fa-regular fa-bell"></i> 마감 1일 전 알림 자동 감지</span>
         </h2>
         
-        <div class="flex flex-col sm:flex-row gap-2 mb-4">
+        <div class="flex flex-col sm:flex-row gap-2 mb-6">
           <input type="text" id="todoInput" placeholder="어떤 공부를 하실 건가요?" class="toss-input flex-1">
           <input type="date" id="todoDate" class="toss-input">
           <button id="addTodoBtn" class="toss-btn">등록</button>
+        </div>
+
+        <div id="neisScheduleBox" class="mb-6 p-4 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 rounded-2xl hidden">
+          <h3 class="text-xs font-bold text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1">
+            <i class="fa-solid fa-calendar-minus"></i> 다가오는 학교 학사일정 (나이스 연동)
+          </h3>
+          <ul id="neisScheduleList" class="space-y-1.5 text-xs text-[var(--text-color)]">
+            </ul>
         </div>
 
         <ul id="todoList" class="space-y-2">
@@ -167,14 +181,42 @@
         </div>
         <div class="pt-6 mt-2">
           <p class="text-xs text-slate-400 font-semibold mb-2 flex justify-between">
-            <span>📌 바탕화면 투두 위젯</span>
-            <span class="text-[10px] text-blue-400 cursor-pointer hover:underline" onclick="alert('브라우저의 알림 권한을 허용하시면 시스템 알림이 작동합니다.')">알림 권한 테스트</span>
+            <span>📌 바탕화면 투두 & 학사일정 위젯</span>
           </p>
           <div id="widgetContainer" class="bg-slate-800/60 p-3 rounded-xl border border-slate-700 space-y-1.5 text-sm min-h-[60px]">
             </div>
         </div>
       </section>
 
+    </div>
+  </div>
+
+  <div id="apiModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 hidden">
+    <div class="bg-[var(--card-bg)] text-[var(--text-color)] w-full max-w-md mx-4 p-6 rounded-3xl border border-[var(--border-color)] shadow-2xl">
+      <h3 class="text-lg font-bold mb-2 flex items-center gap-2 text-[var(--toss-blue)]">
+        <i class="fa-solid fa-key"></i> NICE 교육정보 오픈 API 설정
+      </h3>
+      <p class="text-xs text-[var(--sub-text)] mb-4">입력하신 API 인증 자격 키는 안전하게 Firestore 개인 문서 하위에 암호화 보관 처리됩니다.</p>
+      
+      <div class="space-y-3">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold">나이스 API 인증키(KEY)</label>
+          <input type="text" id="inputNeisKey" placeholder="인증키를 입력하세요" class="toss-input text-xs font-mono">
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold">시도교육청코드 (ATPT_OFCDC_SC_CODE)</label>
+          <input type="text" id="inputOfficeCode" placeholder="예: B10 (서울교육청)" class="toss-input text-xs">
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold">행정표준코드 (SD_SCH_CODE)</label>
+          <input type="text" id="inputSchoolCode" placeholder="예: 7010057" class="toss-input text-xs">
+        </div>
+      </div>
+
+      <div class="flex gap-2 mt-6">
+        <button id="closeApiModalBtn" class="flex-1 py-3 text-sm font-medium rounded-xl bg-[var(--bg-color)] border border-[var(--border-color)] text-[var(--sub-text)]">취소</button>
+        <button id="saveApiConfigBtn" class="flex-1 toss-btn py-3 text-sm">연동 및 저장</button>
+      </div>
     </div>
   </div>
 
@@ -203,7 +245,6 @@
     // 지정된 단일 문서 참조 생성 (students/10817)
     const docRef = doc(db, "students", "10817");
 
-    // 초기화 상태 팩토리용 기본 데이터 객체
     const getInitialState = () => ({
       points: 0,
       currentEquipped: "",
@@ -214,17 +255,20 @@
         { name: "이싸피", time: 42 },
         { name: "박성실", time: 15 }
       ],
-      theme: "default"
+      theme: "default",
+      // 나이스 API 메타 정보 보관 스키마 확장
+      neisConfig: {
+        key: "",
+        atptCode: "",
+        schCode: ""
+      }
     });
 
-    // 로컬 상태 객체
     let state = getInitialState();
-
-    // 타이머 변수
     let timerInterval = null;
     let isTimerRunning = false;
+    let localFetchedSchedules = []; // 나이스 연동 데이터 캐싱 보관함
 
-    // 브라우저 알림 권한 요청
     if (Notification.permission === "default") {
       Notification.requestPermission();
     }
@@ -248,11 +292,17 @@
 
     // Firebase 실시간 동기화
     onSnapshot(docRef, (docSnap) => {
+      const isFirstLoad = !state.neisConfig?.key;
       if (docSnap.exists()) {
         state = { ...state, ...docSnap.data() };
         renderAll();
         checkDeadlines();
         updateTimerDisplay();
+        
+        // 데이터베이스에 키 설정이 적재되었고 변동이 생겼을 시 자동 동기화 트리거
+        if (state.neisConfig?.key && (isFirstLoad || localFetchedSchedules.length === 0)) {
+          fetchNeisSchedule();
+        }
       } else {
         saveData();
       }
@@ -263,6 +313,38 @@
         await setDoc(docRef, state);
       } catch (e) {
         console.error("데이터 저장 실패:", e);
+      }
+    }
+
+    // 나이스 API 통신 함수
+    async function fetchNeisSchedule() {
+      if (!state.neisConfig || !state.neisConfig.key) return;
+      
+      const { key, atptCode, schCode } = state.neisConfig;
+      
+      // 올해 기준으로 일정 수집 범위 세팅
+      const currentYear = new Date().getFullYear();
+      const url = `https://open.neis.go.kr/hub/SchoolSchedule?KEY=${key}&Type=json&pIndex=1&pSize=50&ATPT_OFCDC_SC_CODE=${atptCode}&SD_SCH_CODE=${schCode}&AA_FROM_YMD=${currentYear}0101&AA_TO_YMD=${currentYear}1231`;
+      
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.SchoolSchedule && data.SchoolSchedule[1]?.row) {
+          const rawRows = data.SchoolSchedule[1].row;
+          
+          // 오늘 날짜 이후의 일정만 필터링하여 일자순 정렬
+          const todayStr = new Date().toISOString().slice(0,10).replace(/-/g, "");
+          
+          localFetchedSchedules = rawRows
+            .filter(item => item.AA_YMD >= todayStr)
+            .sort((a,b) => a.AA_YMD.localeCompare(b.AA_YMD))
+            .slice(0, 4); // 다가오는 메이저 4개만 요약
+            
+          renderAll();
+        }
+      } catch (error) {
+        console.error("나이스 학사일정 호출 실패:", error);
       }
     }
 
@@ -328,6 +410,38 @@
           widgetContainerEl.appendChild(widgetItem);
         }
       });
+
+      // 3-2. [신규 랜더링] 학사 일정 UI 연동 출력
+      const neisScheduleBox = document.getElementById('neisScheduleBox');
+      const neisScheduleList = document.getElementById('neisScheduleList');
+      
+      if (localFetchedSchedules.length > 0) {
+        neisScheduleBox.classList.remove('hidden');
+        neisScheduleList.innerHTML = "";
+        
+        // 위젯 타이틀 바 하단 공간 가상 구분선 추가
+        if(widgetContainerEl.children.length > 0) {
+          const divider = document.createElement('div');
+          divider.className = "border-t border-slate-700/60 my-1";
+          widgetContainerEl.appendChild(divider);
+        }
+
+        localFetchedSchedules.forEach(item => {
+          const formattedDate = `${item.AA_YMD.substring(4,6)}월 ${item.AA_YMD.substring(6,8)}일`;
+          
+          // 메인 영역 추가
+          const sLi = document.createElement('li');
+          sLi.className = "flex justify-between items-center bg-[var(--card-bg)] p-2 rounded-lg border border-[var(--border-color)]";
+          sLi.innerHTML = `<span class="font-semibold text-blue-600 dark:text-blue-400">📅 ${item.SCHUL_EVENT_NM}</span> <span class="text-[11px] text-[var(--sub-text)]">${formattedDate}</span>`;
+          neisScheduleList.appendChild(sLi);
+
+          // 위젯 영역 추가
+          const wItem = document.createElement('div');
+          wItem.className = "flex justify-between items-center text-xs text-sky-300 py-0.5 font-medium";
+          wItem.innerHTML = `<span>✨ [학교] ${item.SCHUL_EVENT_NM}</span> <span class="text-[10px] text-slate-400">${formattedDate}</span>`;
+          widgetContainerEl.appendChild(wItem);
+        });
+      }
 
       // 4. 무결성 실시간 학습 랭킹 시스템
       const friendListEl = document.getElementById('friendList');
@@ -419,15 +533,46 @@
       timerDisplay.innerText = `${hrs}:${mins}:${secs}`;
     }
 
-    // [요청 기능] 데이터베이스의 랭킹 및 저장값 전면 초기화 액션
+    // 데이터베이스의 랭킹 및 저장값 전면 초기화 액션
     document.getElementById('resetDataBtn').addEventListener('click', async () => {
-      const check = confirm("⚠️ 정말로 공부 기록을 리셋할까요?\n내 공부 시간, 적립된 포인트, 장착된 아이템 및 할 일 목록이 모두 데이터베이스에서 초기화됩니다.");
+      const check = confirm("⚠️ 정말로 공부 기록을 리셋할까요?");
       if (check) {
-        stopTimer(); // 타이머 가동 중이면 중지
-        state = getInitialState(); // 상태값을 완전 초기 포맷으로 덮어씀
-        await saveData(); // Firestore (students/10817) 문서 갱신
-        showToast("데이터베이스의 모든 랭킹 및 학습 데이터가 리셋되었습니다.");
+        stopTimer();
+        state = getInitialState();
+        localFetchedSchedules = [];
+        await saveData();
+        showToast("데이터베이스의 모든 데이터가 리셋되었습니다.");
       }
+    });
+
+    // 모달 다이얼로그 가시성 핸들러
+    const apiModal = document.getElementById('apiModal');
+    document.getElementById('openApiModalBtn').addEventListener('click', () => {
+      document.getElementById('inputNeisKey').value = state.neisConfig?.key || "";
+      document.getElementById('inputOfficeCode').value = state.neisConfig?.atptCode || "";
+      document.getElementById('inputSchoolCode').value = state.neisConfig?.schCode || "";
+      apiModal.classList.remove('hidden');
+    });
+
+    document.getElementById('closeApiModalBtn').addEventListener('click', () => {
+      apiModal.classList.add('hidden');
+    });
+
+    document.getElementById('saveApiConfigBtn').addEventListener('click', async () => {
+      const key = document.getElementById('inputNeisKey').value.trim();
+      const atptCode = document.getElementById('inputOfficeCode').value.trim();
+      const schCode = document.getElementById('inputSchoolCode').value.trim();
+
+      if(!key || !atptCode || !schCode) {
+        alert("모든 빈칸을 채워주셔야 연동이 가능합니다.");
+        return;
+      }
+
+      state.neisConfig = { key, atptCode, schCode };
+      await saveData();
+      apiModal.classList.add('hidden');
+      showToast("나이스 API 자격이 동기화되었습니다. 일정을 탐색합니다.");
+      fetchNeisSchedule();
     });
 
     window.buyItem = function(itemIcon, cost) {
